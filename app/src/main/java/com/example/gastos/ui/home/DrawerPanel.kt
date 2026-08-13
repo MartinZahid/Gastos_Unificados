@@ -324,14 +324,13 @@ private fun BankBreakdown(shares: List<BankShare>) {
             Text("Sin datos para este filtro", color = TextSecondary, fontSize = 12.sp)
         } else {
             Spacer(Modifier.height(12.dp))
-            shares.take(3).forEach { share ->
+            shares.take(3).forEachIndexed { index, share ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val index = shares.indexOf(share)
                     Box(
                         Modifier
                             .size(8.dp)

@@ -59,7 +59,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gastos.data.Transaction
-import com.example.gastos.ui.DevScreen
+import com.example.gastos.ui.dev.DevScreen
 import com.example.gastos.ui.TransactionViewModel
 import com.example.gastos.ui.common.CornerCutShape
 import com.example.gastos.ui.common.formatMoney

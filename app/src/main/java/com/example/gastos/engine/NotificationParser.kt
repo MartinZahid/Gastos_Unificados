@@ -118,14 +118,20 @@ object NotificationParser {
         }
     }
 
-    private fun extractAmount(text: String): Double? {
+    // Expone el monto como texto (formato original) para reusar la misma lógica
+    // del parser en la UI (p. ej. prellenar el formulario manual del Modo dev),
+    // en lugar de mantener una segunda implementación de "extraer monto".
+    fun extractAmountText(rawText: String): String? {
         for (pattern in amountPatterns) {
-            val match = pattern.find(text) ?: continue
+            val match = pattern.find(rawText) ?: continue
             val cleaned = match.groupValues[1].replace(",", "").trim()
-            cleaned.toDoubleOrNull()?.let { return it }
+            if (cleaned.toDoubleOrNull() != null) return cleaned
         }
         return null
     }
+
+    private fun extractAmount(text: String): Double? =
+        extractAmountText(text)?.toDoubleOrNull()
 
     private fun extractMerchant(text: String, extraKeywords: List<String>): String? {
         // Las frases aprendidas desde Modo dev se prueban después de los
