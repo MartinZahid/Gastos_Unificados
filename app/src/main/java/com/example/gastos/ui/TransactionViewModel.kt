@@ -13,6 +13,7 @@ import com.example.gastos.data.NotificationLog
 import com.example.gastos.data.NotificationLogDao
 import com.example.gastos.data.Transaction
 import com.example.gastos.data.TransactionDao
+import com.example.gastos.ui.common.parseAmountInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,7 +48,7 @@ class TransactionViewModel(
     val selectedBank: StateFlow<String?> = _selectedBank.asStateFlow()
 
     private val all: StateFlow<List<Transaction>> = dao.observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
     val filteredTransactions: StateFlow<List<Transaction>> =
         combine(all, _query, _selectedBank) { list, query, bank ->
@@ -55,21 +56,21 @@ class TransactionViewModel(
                 (query.isBlank() || tx.merchant.contains(query, ignoreCase = true)) &&
                     (bank == null || tx.bank == bank)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
     val banks: StateFlow<List<String>> = all
         .map { list -> list.map { it.bank }.distinct().sorted() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
     val summary: StateFlow<Summary> = filteredTransactions
         .map { list -> buildSummary(list) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Summary())
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, Summary())
 
     val notificationLogs: StateFlow<List<NotificationLog>> = logDao.observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
     val learnedPatterns: StateFlow<List<LearnedPattern>> = learnedDao.observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
     fun setQuery(value: String) {
         _query.value = value
@@ -105,6 +106,7 @@ class TransactionViewModel(
         viewModelScope.launch { dao.delete(transaction) }
     }
 
+    // Inserta una compra ya validada (desde el log dev parseado).
     fun insertPurchase(merchant: String, amount: Double, bank: String) {
         if (merchant.isBlank() || amount <= 0) return
         viewModelScope.launch {
@@ -119,8 +121,9 @@ class TransactionViewModel(
         }
     }
 
+    // Inserta una compra escrita a mano en el formulario dev (texto crudo).
     fun insertManualPurchase(merchant: String, amountText: String, bank: String) {
-        val amount = amountText.replace(",", "").replace("$", "").toDoubleOrNull() ?: return
+        val amount = parseAmountInput(amountText) ?: return
         if (merchant.isBlank() || amount <= 0 || bank.isBlank()) return
         insertPurchase(merchant, amount, bank)
     }
@@ -172,6 +175,9 @@ class TransactionViewModel(
     }
 
     companion object {
+        // Tiempo que un flujo sigue emitiendo tras quedarse sin suscriptores.
+        private val STOP_SHARING_TIMEOUT = SharingStarted.WhileSubscribed(5_000)
+
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as Application
@@ -180,41 +186,4 @@ class TransactionViewModel(
             }
         }
     }
-}
-
-private val triggerStopWords = setOf(
-    "de", "del", "la", "el", "los", "las", "en", "por", "con", "a", "para", "tu", "su",
-    "un", "una", "y", "o", "al", "que", "se", "es", "fue", "del", "notificacion",
-    "banco", "tarjeta", "tdc", "credito", "crédito", "importante", "aviso", "mensaje",
-    "cliente", "hola", "estimado", "estimada", "sr", "sra"
-)
-
-fun deriveTrigger(text: String, merchant: String): String? {
-    val mFirst = merchant.split(Regex("\\s+")).firstOrNull()?.trim() ?: return null
-    if (mFirst.isBlank()) return null
-    val idx = text.indexOf(mFirst, ignoreCase = true)
-    if (idx <= 0) return null
-    val before = text.substring(0, idx)
-    val words = before.split(Regex("\\s+"))
-        .map { it.trim().trimEnd(',', ':', ';', '/') }
-        .filter { it.isNotBlank() }
-    val meaningful = words.filter { it.length >= 4 && it.lowercase() !in triggerStopWords }
-    return when {
-        meaningful.size >= 2 -> meaningful.takeLast(2).joinToString(" ").lowercase()
-        meaningful.size == 1 -> meaningful.last().lowercase()
-        else -> null
-    }
-}
-
-private val purchaseMarkers = listOf(
-    "compra", "pago", "pagaste", "compraste", "autoriz", "aprob", "cargo",
-    "retiro/compra", "establecimiento"
-)
-
-fun deriveIgnoreKeyword(text: String): String? {
-    if (purchaseMarkers.any { text.contains(it, ignoreCase = true) }) return null
-    val first = text.split(Regex("\\s+"))
-        .firstOrNull { it.length >= 4 && it.all { c -> c.isLetter() } }
-        ?: return null
-    return first.lowercase()
 }

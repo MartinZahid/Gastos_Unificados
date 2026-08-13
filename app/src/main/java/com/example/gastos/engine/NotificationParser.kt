@@ -13,50 +13,81 @@ sealed class ParseResult {
 
 object NotificationParser {
 
+    // Carácter válido dentro del nombre de un comercio. Se captura un máximo
+    // de 7 palabras para no tragarse el resto de la notificación.
     private val wordClass = "[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9&'.,-]"
     private val merchantCapture = "$wordClass+(?:\\s+$wordClass+){0,6}"
 
-    private val amountPatterns = listOf(
-        Regex("""[$]\s*([\d.,]+)"""),
-        Regex("""(?:MXN|MN|USD|US)\s*[$]\s*([\d.,]+)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:monto|importe|total)\s*:?\s*[$]?\s*([\d.,]+)""", RegexOption.IGNORE_CASE),
-        Regex("""([\d.,]+)\s*(?:MXN|MN|USD|pesos)""", RegexOption.IGNORE_CASE)
+    // --- Patrones de monto, en orden de prioridad ---
+    // Ej: "Retiro/Compra COSTCO … monto $110.00" o "Compra aprobada en OXXO por $85.50"
+    private val dollarAmount = Regex("""[$]\s*([\d.,]+)""")
+    // Ej: "MXN $500.00", "USD $12.00"
+    private val currencyDollar = Regex("""(?:MXN|MN|USD|US)\s*[$]\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
+    // Ej: "monto $110.00", "importe total: 150.00"
+    private val labeledAmount = Regex("""(?:monto|importe|total)\s*:?\s*[$]?\s*([\d.,]+)""", RegexOption.IGNORE_CASE)
+    // Ej: "500.00 MXN", "150.50 pesos"
+    private val trailingCurrency = Regex("""([\d.,]+)\s*(?:MXN|MN|USD|pesos)""", RegexOption.IGNORE_CASE)
+
+    private val amountPatterns = listOf(dollarAmount, currencyDollar, labeledAmount, trailingCurrency)
+
+    // --- Patrones de comercio, en orden de prioridad ---
+    // Ej: "Comercio WALMART SUPERMERCADO monto $999.99"
+    private val labeledMerchant = Regex(
+        """(?:comercio|establecimiento|adquiriente)\s*:?\s*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
+    // Ej: "Compra aprobada en OXXO por $85.50 con tarjeta BANAMEX512"
+    private val compraEn = Regex(
+        """(?:compra en|compra por|compra aprobada en|compra aprobada por|compra realizada en|compra realizada por)\s*[:\-\s]*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
+    // Ej: "Pago autorizado en SORIANA $1,250.00"
+    private val aprobadoEn = Regex(
+        """(?:aprobada en|aprobada por|autorizado en|autorizada en|autorizado por|autorizada por)\s*[:\-\s]*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
+    // Ej: "Compraste en NETFLIX $239.00 con tu tarjeta NU"
+    private val pagasteEn = Regex(
+        """(?:pago en|pago a|pagaste en|pagaste a|compraste en|compraste a)\s*[:\-\s]*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
+    // Ej: "Retiro/Compra COSTCO HERMOSILLO HER COSTCO BANAMEX512 monto $110.00"
+    private val cargoOCompra = Regex(
+        """(?:cargo en|cargo por|realizado en|realizada en|realizado por|realizada por|retiro/compra|compra realizada)\s*[:\-\s]*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
+    // Ej: "Compra Cinepolis monto $80.00"
+    private val compraBare = Regex(
+        """compra\s+($merchantCapture)""",
+        RegexOption.IGNORE_CASE
     )
 
     private val merchantPatterns = listOf(
-        Regex(
-            """(?:comercio|establecimiento|adquiriente)\s*:?\s*($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        ),
-        Regex(
-            """(?:compra en|compra por|compra aprobada en|compra aprobada por|compra realizada en|compra realizada por)\s*[:\-\s]*($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        ),
-        Regex(
-            """(?:aprobada en|aprobada por|autorizado en|autorizada en|autorizado por|autorizada por)\s*[:\-\s]*($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        ),
-        Regex(
-            """(?:pago en|pago a|pagaste en|pagaste a|compraste en|compraste a)\s*[:\-\s]*($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        ),
-        Regex(
-            """(?:cargo en|cargo por|realizado en|realizada en|realizado por|realizada por|retiro/compra|compra realizada)\s*[:\-\s]*($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        ),
-        Regex(
-            """compra\s+($merchantCapture)""",
-            RegexOption.IGNORE_CASE
-        )
+        labeledMerchant, compraEn, aprobadoEn, pagasteEn, cargoOCompra, compraBare
     )
 
+    // Último intento: captura las palabras previas a "por/monto/importe" seguidos de monto.
+    // Ej: "Transferencia recibida de JUAN PEREZ por $500.00 MXN"
     private val fallbackMerchantRegex = Regex(
         """($merchantCapture)\s+(?:por|monto|importe)\s*[$]?\s*""",
         RegexOption.IGNORE_CASE
     )
 
+    // --- Cortes de comercio (dónde termina el nombre del comercio) ---
+    // Palabras que separan el comercio del resto: "COSTCO … monto $110.00"
+    private val boundaryWords = Regex(
+        """\s+(?:monto|importe|total|por|con|de|el|la|los|las|a|a las|auto\.?|ref\.?|referencia|folio|tarjeta|cuenta|mxn|mn|usd|pesos)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    // Tokens que mezclan texto y dígitos: "COSTCO … BANAMEX512 monto …" (últimos 4 del TDC)
+    private val boundaryMixedTokens = Regex("""\s+[A-Za-z]*[0-9]+[A-Za-z0-9]*""")
+    // Fechas: "el 12/08/26 04:15:13 PM"
+    private val boundaryDates = Regex("""\s+\d{1,2}/\d{1,2}""")
+    // Montos en línea: "SORIANA $1,250.00"
+    private val boundaryAmounts = Regex("""\s*[$][\d.,]+""")
+
     private val boundaryRegex = Regex(
-        """(?i)\s+(?:monto|importe|total|por|con|de|el|la|los|las|a|a las|auto\.?|ref\.?|referencia|folio|tarjeta|cuenta|mxn|mn|usd|pesos)\b|\s+[A-Za-z]*[0-9]+[A-Za-z0-9]*|\s+\d{1,2}/\d{1,2}|\s*[$][\d.,]+"""
+        listOf(boundaryWords, boundaryMixedTokens, boundaryDates, boundaryAmounts).joinToString("|")
     )
 
     fun parse(
@@ -97,6 +128,8 @@ object NotificationParser {
     }
 
     private fun extractMerchant(text: String, extraKeywords: List<String>): String? {
+        // Las frases aprendidas desde Modo dev se prueban después de los
+        // patrones fijos: ej, aprendida "retiro/compra" -> "retiro/compra COSTCO …".
         val patterns = merchantPatterns + extraKeywords.map { learnedMerchantRegex(it) }
         for (pattern in patterns) {
             val match = pattern.find(text) ?: continue

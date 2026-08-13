@@ -38,6 +38,10 @@ class BankNotificationListener : NotificationListenerService() {
             val inTarget = packageName in TargetPackages
             val bank = BankNames[packageName] ?: packageName
 
+            // Registramos TODAS las notificaciones (parseadas o no) para depurar
+            // patrones nuevos desde DevScreen; solo creamos una Transaction si el
+            // paquete está en la lista de apps bancarias soportadas (inTarget),
+            // para no ensuciar los movimientos con avisos de apps ajenas.
             when (result) {
                 is ParseResult.Success -> {
                     db.notificationLogDao().insert(
@@ -76,6 +80,8 @@ class BankNotificationListener : NotificationListenerService() {
                     )
                 }
             }
+            // El log se mantiene acotado a las últimas 200 entradas para que
+            // la pantalla dev no crezca sin límite en memoria.
             db.notificationLogDao().prune()
         }
     }
@@ -86,6 +92,7 @@ class BankNotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        // Paquetes de apps bancarias cuyas notificaciones generan movimientos.
         val TargetPackages: Set<String> = setOf(
             "com.nu.production",
             "com.mercadopago.wallet",

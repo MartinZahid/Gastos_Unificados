@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.gastos.ui.HomeScreen
+import com.example.gastos.ui.home.HomeScreen
 import com.example.gastos.ui.theme.GastosTheme
 
 class MainActivity : ComponentActivity() {

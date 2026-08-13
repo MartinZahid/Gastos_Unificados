@@ -72,6 +72,9 @@ import com.example.gastos.data.LearnedPattern
 import com.example.gastos.data.NotificationLog
 import com.example.gastos.engine.NotificationParser
 import com.example.gastos.engine.ParseResult
+import com.example.gastos.engine.deriveIgnoreKeyword
+import com.example.gastos.engine.deriveTrigger
+import com.example.gastos.ui.common.formatMoney
 import com.example.gastos.ui.theme.BorderLine
 import com.example.gastos.ui.theme.CardBackground
 import com.example.gastos.ui.theme.CardElevated
@@ -828,9 +831,6 @@ private fun guessAmount(text: String): String {
     val regex = Regex("""\$([\d.,]+)""")
     return regex.find(text)?.groupValues?.get(1) ?: ""
 }
-
-private fun formatMoney(value: Double): String =
-    String.format(Locale.US, "$%,.2f", value)
 
 private fun formatTime(millis: Long): String {
     val formatter = SimpleDateFormat("dd MMM HH:mm", Locale("es", "MX"))
