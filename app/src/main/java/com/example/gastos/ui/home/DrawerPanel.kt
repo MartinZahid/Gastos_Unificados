@@ -57,7 +57,8 @@ internal fun DrawerPanel(
     onBankSelected: (String?) -> Unit,
     onClose: () -> Unit,
     onOpenDev: () -> Unit,
-    onOpenKeepAlive: () -> Unit
+    onOpenKeepAlive: () -> Unit,
+    unreviewedFailureCount: Int = 0
 ) {
     Column(
         modifier = Modifier
@@ -151,6 +152,24 @@ internal fun DrawerPanel(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
+                // Aviso de que hay notificaciones bancarias sin reconocer:
+                // visible desde el drawer, sin tener que entrar a Modo dev
+                // para descubrir que se están perdiendo gastos.
+                if (unreviewedFailureCount > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Coral,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = unreviewedFailureCount.toString(),
+                            color = Ink,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
                     contentDescription = null,

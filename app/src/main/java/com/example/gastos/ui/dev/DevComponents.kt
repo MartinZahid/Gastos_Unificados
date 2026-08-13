@@ -67,6 +67,44 @@ internal fun DevActionButton(
     }
 }
 
+// Aviso de que el parser lleva varias notificaciones de un banco soportado
+// sin poder leer -típicamente porque el banco cambió el texto de sus
+// notificaciones-, para no perder gastos sin que nadie se entere.
+@Composable
+internal fun UnreviewedFailuresBanner(
+    count: Int,
+    onMarkReviewed: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = CardElevated,
+        border = BorderStroke(1.dp, Coral)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "$count notificación(es) sin reconocer",
+                color = Coral,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "El parser no logró leer el monto o el comercio. " +
+                    "Es probable que el banco haya cambiado el formato de su " +
+                    "notificación. Revísalas abajo y, si hace falta, enséñale " +
+                    "el patrón nuevo.",
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onMarkReviewed) {
+                Text("Marcar como revisadas", color = Volt, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun DevLabel(text: String) {
     Text(

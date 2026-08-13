@@ -72,6 +72,12 @@ class TransactionViewModel(
     val learnedPatterns: StateFlow<List<LearnedPattern>> = learnedDao.observeAll()
         .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
+    // Notificaciones bancarias que el parser no pudo leer y aún no se
+    // revisan. Alimenta el aviso proactivo (badge en el drawer + banner en
+    // Modo dev) para no perder gastos silenciosamente.
+    val unreviewedFailureCount: StateFlow<Int> = logDao.observeUnreviewedFailureCount()
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, 0)
+
     fun setQuery(value: String) {
         _query.value = value
     }
@@ -134,6 +140,12 @@ class TransactionViewModel(
 
     fun clearLogs() {
         viewModelScope.launch { logDao.clear() }
+    }
+
+    // El usuario ya vio el log de "no reconocidas" en Modo dev: apaga la
+    // alerta hasta que llegue una nueva notificación sin parsear.
+    fun markFailuresReviewed() {
+        viewModelScope.launch { logDao.markFailuresReviewed() }
     }
 
     fun deleteLearned(id: Long) {

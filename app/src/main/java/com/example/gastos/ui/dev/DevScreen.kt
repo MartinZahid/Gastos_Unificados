@@ -63,6 +63,7 @@ fun DevScreen(
 ) {
     val logs by viewModel.notificationLogs.collectAsStateWithLifecycle()
     val learned by viewModel.learnedPatterns.collectAsStateWithLifecycle()
+    val unreviewedCount by viewModel.unreviewedFailureCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showTester by remember { mutableStateOf(false) }
@@ -149,6 +150,17 @@ fun DevScreen(
         )
 
         Spacer(Modifier.height(20.dp))
+
+        // Aviso de que el parser dejó de reconocer notificaciones de un
+        // banco soportado: sin esto, un cambio de formato del banco pierde
+        // gastos en silencio hasta que alguien entra a revisar por su cuenta.
+        if (unreviewedCount > 0) {
+            UnreviewedFailuresBanner(
+                count = unreviewedCount,
+                onMarkReviewed = viewModel::markFailuresReviewed
+            )
+            Spacer(Modifier.height(16.dp))
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             DevLabel("LOG DE NOTIFICACIONES")

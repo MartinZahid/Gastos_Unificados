@@ -83,6 +83,7 @@ fun HomeScreen(
     val banks by viewModel.banks.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val selectedBank by viewModel.selectedBank.collectAsStateWithLifecycle()
+    val unreviewedFailureCount by viewModel.unreviewedFailureCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val listenerEnabled = remember { isListenerEnabled(context) }
 
@@ -135,7 +136,8 @@ fun HomeScreen(
                         onOpenKeepAlive = {
                             scope.launch { drawerState.close() }
                             showKeepAlive = true
-                        }
+                        },
+                        unreviewedFailureCount = unreviewedFailureCount
                     )
                 }
             }

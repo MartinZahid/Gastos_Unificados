@@ -21,7 +21,10 @@ internal val testCorpus = listOf(
     "Pago autorizado en SORIANA \$1,250.00",
     "Comercio WALMART SUPERMERCADO monto \$999.99",
     "Compra realizada en Uber \$60.00",
-    "Pagaste \$109.00 en Carls Jr con tu RappiCard digital."
+    "Pagaste \$109.00 en Carls Jr con tu RappiCard digital.",
+    // Deliberadamente sin reconocer: sirve para ver el caso "NO" del tester
+    // y el banner de "notificaciones sin reconocer" al simularla.
+    "Su compra no pudo completarse. Saldo insuficiente en la tarjeta terminación 512."
 )
 
 internal fun postTestNotification(context: Context, text: String) {

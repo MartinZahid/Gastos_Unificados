@@ -22,4 +22,27 @@ interface NotificationLogDao {
 
     @Query("UPDATE notification_log SET type = :type WHERE id = :id")
     suspend fun setType(id: Long, type: String)
+
+    // Notificaciones de un banco soportado (inTargetList) que el parser NO
+    // logró leer y que el usuario todavía no ha revisado. Es la señal para
+    // avisar de forma proactiva "se te pueden estar perdiendo gastos".
+    @Query(
+        "SELECT COUNT(*) FROM notification_log " +
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+    )
+    fun observeUnreviewedFailureCount(): Flow<Int>
+
+    @Query(
+        "SELECT COUNT(*) FROM notification_log " +
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+    )
+    suspend fun unreviewedFailureCount(): Int
+
+    // Se llama cuando el usuario abre/revisa el log en Modo dev, para que la
+    // alerta no se repita con las mismas entradas ya vistas.
+    @Query(
+        "UPDATE notification_log SET reviewed = 1 " +
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+    )
+    suspend fun markFailuresReviewed()
 }

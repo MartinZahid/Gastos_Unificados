@@ -3,12 +3,15 @@ package com.example.gastos.listener
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.gastos.MainActivity
 import com.example.gastos.R
 import com.example.gastos.data.AppDatabase
 import com.example.gastos.data.LearnedPattern
@@ -74,6 +77,13 @@ class BankNotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
+        // No procesamos las notificaciones que publica el propio servicio
+        // (estado permanente y alerta de no reconocidas): el listener también
+        // las recibe y, al no tener monto, se contarían como fallos falsos
+        // (un falso "sin monto" por cada reconexión).
+        val channelId = sbn.notification?.channelId
+        if (channelId == STATUS_CHANNEL_ID || channelId == ALERT_CHANNEL_ID) return
+
         val packageName = sbn.packageName
         val extras = sbn.notification?.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -133,6 +143,11 @@ class BankNotificationListener : NotificationListenerService() {
                             inTargetList = inTarget
                         )
                     )
+                    // Solo alertamos por fallos de apps bancarias soportadas:
+                    // si un banco cambia el formato de su notificación, el
+                    // regex deja de reconocerla y el gasto se perdería en
+                    // silencio si nadie revisa Modo dev por su cuenta.
+                    if (inTarget) maybeAlertUnreviewedFailures()
                 }
             }
             // El log se mantiene acotado a las últimas 200 entradas para que
@@ -146,10 +161,68 @@ class BankNotificationListener : NotificationListenerService() {
         scope.cancel()
     }
 
+    // Si se acumulan varias notificaciones bancarias sin reconocer, avisa una
+    // sola vez (con enfriamiento) en vez de una notificación por cada fallo,
+    // que sería spam. El umbral y el enfriamiento evitan avisar por un caso
+    // aislado (p. ej. una promoción rara) y molestar de más.
+    private suspend fun maybeAlertUnreviewedFailures() {
+        val db = AppDatabase.getInstance(this)
+        val unreviewed = db.notificationLogDao().unreviewedFailureCount()
+        if (unreviewed < UNREVIEWED_ALERT_THRESHOLD) return
+
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val lastAlert = prefs.getLong(PREF_LAST_ALERT_MILLIS, 0L)
+        val now = System.currentTimeMillis()
+        if (now - lastAlert < ALERT_COOLDOWN_MILLIS) return
+        prefs.edit().putLong(PREF_LAST_ALERT_MILLIS, now).apply()
+
+        postUnreviewedAlert(unreviewed)
+    }
+
+    private fun postUnreviewedAlert(count: Int) {
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                ALERT_CHANNEL_ID,
+                "Notificaciones sin reconocer",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+        val openApp = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Gastos sin reconocer")
+            .setContentText("No pude leer $count notificación(es) de tu banco. Revísalas en Modo dev.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openApp)
+            .build()
+        NotificationManagerCompat.from(this).notify(ALERT_NOTIFICATION_ID, notification)
+    }
+
     companion object {
         // Canal e id de la notificación permanente de estado del servicio.
         private const val STATUS_CHANNEL_ID = "listener_status"
         private const val STATUS_NOTIFICATION_ID = 1
+
+        // Canal e id de la alerta proactiva de notificaciones sin reconocer.
+        private const val ALERT_CHANNEL_ID = "unreviewed_failures"
+        private const val ALERT_NOTIFICATION_ID = 2
+
+        private const val PREFS_NAME = "listener_prefs"
+        private const val PREF_LAST_ALERT_MILLIS = "last_unreviewed_alert_millis"
+
+        // Mínimo de fallos acumulados antes de avisar.
+        private const val UNREVIEWED_ALERT_THRESHOLD = 3
+        // No repetir el aviso antes de que pase este tiempo, aunque sigan
+        // llegando fallos nuevos.
+        private const val ALERT_COOLDOWN_MILLIS = 12 * 60 * 60 * 1000L // 12h
 
         // Paquetes de apps bancarias cuyas notificaciones generan movimientos.
         val TargetPackages: Set<String> = setOf(

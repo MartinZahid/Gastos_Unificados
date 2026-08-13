@@ -17,5 +17,9 @@ data class NotificationLog(
     val reason: String? = null,
     val inTargetList: Boolean = false,
     val type: String? = null,
-    val dateMillis: Long = System.currentTimeMillis()
+    val dateMillis: Long = System.currentTimeMillis(),
+    // true una vez que el usuario ya vio esta entrada como "no reconocida"
+    // en Modo dev (vía el botón "Marcar como revisadas"). Sirve para no
+    // repetir la alerta proactiva de notificaciones sin parsear.
+    val reviewed: Boolean = false
 )

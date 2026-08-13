@@ -9,6 +9,7 @@ App Android 100% local que consolida tus gastos de tarjeta de crédito leyendo l
 - **Consolidación**: todas tus tarjetas en una sola lista, con total, promedio, mayor gasto, gasto del mes y desglose por banco.
 - **Filtros**: búsqueda por comercio y filtro por banco desde un menú lateral.
 - **Edición manual**: toca cualquier movimiento para editarlo o eliminarlo.
+- **Alerta de no reconocidas**: si un banco cambia el formato de sus notificaciones y el parser deja de leerlas, la app avisa de forma proactiva (badge en el menú lateral + banner en Modo dev + notificación con umbral de 3 y enfriamiento de 12 h) para no perder gastos en silencio.
 - **Modo dev**: entorno para "alimentar" el parser (ver sección más abajo).
 
 ## Stack
@@ -97,4 +98,4 @@ La app es **100% local**: toda la información (movimientos, notificaciones, fra
 
 ## Estado actual
 
-Funcionalidad base implementada y probada en dispositivo (Samsung S24). El parser resuelve los formatos más comunes de Citibanamex (incluye el formato `Retiro/Compra COSTCO … BANAMEX512 monto $110.00`), Nubank, BBVA, Santander, Mercado Pago y Rappi (incluye formatos con monto entre el verbo y el comercio, p. ej. `Pagaste $109.00 en Carls Jr`), y es extensible vía Modo dev.
+Funcionalidad base implementada y probada en dispositivo (Samsung S24). El parser resuelve los formatos más comunes de Citibanamex (incluye el formato `Retiro/Compra COSTCO … BANAMEX512 monto $110.00`), Nubank, BBVA, Santander, Mercado Pago y Rappi (incluye formatos con monto entre el verbo y el comercio, p. ej. `Pagaste $109.00 en Carls Jr`), y es extensible vía Modo dev. Incluye alerta proactiva cuando una notificación de banco no se reconoce (umbral 3, enfriamiento 12 h).
