@@ -87,7 +87,6 @@ class BankNotificationListener : NotificationListenerService() {
 
             val result = NotificationParser.parse("$title $text", extraKeywords, ignoreKeywords)
             val inTarget = packageName in TargetPackages
-            val bank = BankNames[packageName] ?: packageName
 
             // Registramos TODAS las notificaciones (parseadas o no) para depurar
             // patrones nuevos desde DevScreen; solo creamos una Transaction si el
@@ -95,6 +94,9 @@ class BankNotificationListener : NotificationListenerService() {
             // para no ensuciar los movimientos con avisos de apps ajenas.
             when (result) {
                 is ParseResult.Success -> {
+                    // Banco por paquete, con respaldo al banco detectado en el
+                    // texto (p. ej. "RappiCard" -> Rappi) para apps aún no mapeadas.
+                    val bank = BankNames[packageName] ?: result.purchase.bank ?: packageName
                     db.notificationLogDao().insert(
                         NotificationLog(
                             packageName = packageName,
@@ -119,6 +121,7 @@ class BankNotificationListener : NotificationListenerService() {
                     }
                 }
                 is ParseResult.Failure -> {
+                    val bank = BankNames[packageName] ?: packageName
                     db.notificationLogDao().insert(
                         NotificationLog(
                             packageName = packageName,
@@ -126,6 +129,7 @@ class BankNotificationListener : NotificationListenerService() {
                             text = text,
                             parsed = false,
                             reason = result.reason,
+                            bank = bank,
                             inTargetList = inTarget
                         )
                     )

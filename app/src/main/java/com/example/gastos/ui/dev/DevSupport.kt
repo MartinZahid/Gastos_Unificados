@@ -20,7 +20,8 @@ internal val testCorpus = listOf(
     "Compraste en NETFLIX \$239.00 con tu tarjeta NU",
     "Pago autorizado en SORIANA \$1,250.00",
     "Comercio WALMART SUPERMERCADO monto \$999.99",
-    "Compra realizada en Uber \$60.00"
+    "Compra realizada en Uber \$60.00",
+    "Pagaste \$109.00 en Carls Jr con tu RappiCard digital."
 )
 
 internal fun postTestNotification(context: Context, text: String) {

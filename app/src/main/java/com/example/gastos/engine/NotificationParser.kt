@@ -51,6 +51,12 @@ object NotificationParser {
         """(?:pago en|pago a|pagaste en|pagaste a|compraste en|compraste a)\s*[:\-\s]*($merchantCapture)""",
         RegexOption.IGNORE_CASE
     )
+    // Ej: "Pagaste $109.00 en Carls Jr con tu RappiCard digital." El monto va
+    // entre el verbo y el comercio; por eso el monto es opcional antes del "en/a/por".
+    private val verboConMonto = Regex(
+        """(?:pagaste|compraste|abonaste|gastaste)\s*(?:[$]?[\d.,]+\s*)?(?:en|a|por)\s*[:\-\s]*($merchantCapture)""",
+        RegexOption.IGNORE_CASE
+    )
     // Ej: "Retiro/Compra COSTCO HERMOSILLO HER COSTCO BANAMEX512 monto $110.00"
     private val cargoOCompra = Regex(
         """(?:cargo en|cargo por|realizado en|realizada en|realizado por|realizada por|retiro/compra|compra realizada)\s*[:\-\s]*($merchantCapture)""",
@@ -63,7 +69,7 @@ object NotificationParser {
     )
 
     private val merchantPatterns = listOf(
-        labeledMerchant, compraEn, aprobadoEn, pagasteEn, cargoOCompra, compraBare
+        labeledMerchant, compraEn, aprobadoEn, pagasteEn, verboConMonto, cargoOCompra, compraBare
     )
 
     // Último intento: captura las palabras previas a "por/monto/importe" seguidos de monto.
@@ -114,6 +120,7 @@ object NotificationParser {
             text.contains("SANTANDER", true) || text.contains("SUPERMOVIL", true) -> "Santander"
             text.contains("MERCADO", true) -> "Mercado Pago"
             text.contains("NUBANK", true) || Regex("""\bNU\b""").containsMatchIn(text) -> "Nubank"
+            text.contains("RAPPI", true) -> "Rappi"
             else -> null
         }
     }

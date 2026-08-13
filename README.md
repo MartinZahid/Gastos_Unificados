@@ -29,9 +29,9 @@ App Android 100% local que consolida tus gastos de tarjeta de crédito leyendo l
 `NotificationParser` procesa cada notificación:
 
 1. **Monto** — busca patrones de dinero: `$110.00`, `MXN $110`, `monto $110`, `110.00 MXN/pesos`, etc.
-2. **Comercio** — busca frases clave en este orden: `comercio/establecimiento/adquiriente`, `compra en/por`, `aprobada/autorizado en`, `pago/pagaste/compraste`, `cargo/realizado/retiro-compra`, `compra <X>`, y un fallback antes de `por/monto/importe`.
+2. **Comercio** — busca frases clave en este orden: `comercio/establecimiento/adquiriente`, `compra en/por`, `aprobada/autorizado en`, `pago/pagaste/compraste`, verbos con monto intermedio (`pagaste $109.00 en Carls Jr`), `cargo/realizado/retiro-compra`, `compra <X>`, y un fallback antes de `por/monto/importe`.
 3. **Límites** — recorta el comercio en palabras como `monto`, `importe`, `total`, `por`, `con`, `de`, números de tarjeta (`BANAMEX512`), fechas y montos.
-4. **Banco** — detecta el banco por el texto (`BANAMEX` → Citibanamex, `BANORTE` → Banorte, `BBVA`, `SANTANDER`/`SUPERMOVIL` → Santander, `MERCADO` → Mercado Pago, `NUBANK`/`NU` → Nubank) y además usa el paquete de origen como fuente confiable.
+4. **Banco** — detecta el banco por el texto (`BANAMEX` → Citibanamex, `BANORTE` → Banorte, `BBVA`, `SANTANDER`/`SUPERMOVIL` → Santander, `MERCADO` → Mercado Pago, `NUBANK`/`NU` → Nubank, `RAPPI` → Rappi) y además usa el paquete de origen como fuente confiable.
 
 ## Bancos soportados
 
@@ -97,4 +97,4 @@ La app es **100% local**: toda la información (movimientos, notificaciones, fra
 
 ## Estado actual
 
-Funcionalidad base implementada y probada en dispositivo (Samsung S24). El parser resuelve los formatos más comunes de Citibanamex (incluye el formato `Retiro/Compra COSTCO … BANAMEX512 monto $110.00`), Nubank, BBVA, Santander y Mercado Pago, y es extensible vía Modo dev.
+Funcionalidad base implementada y probada en dispositivo (Samsung S24). El parser resuelve los formatos más comunes de Citibanamex (incluye el formato `Retiro/Compra COSTCO … BANAMEX512 monto $110.00`), Nubank, BBVA, Santander, Mercado Pago y Rappi (incluye formatos con monto entre el verbo y el comercio, p. ej. `Pagaste $109.00 en Carls Jr`), y es extensible vía Modo dev.
