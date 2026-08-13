@@ -1,8 +1,13 @@
 package com.example.gastos.ui.home
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,8 +36,10 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +91,20 @@ fun HomeScreen(
 
     var editing by remember { mutableStateOf<Transaction?>(null) }
     var devOpen by remember { mutableStateOf(false) }
+    var showKeepAlive by remember { mutableStateOf(false) }
+
+    // Pide el permiso de notificaciones al arrancar: necesario para la
+    // notificación permanente que mantiene vivo el servicio de escucha.
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     if (devOpen) {
         DevScreen(
@@ -109,6 +131,10 @@ fun HomeScreen(
                         onOpenDev = {
                             scope.launch { drawerState.close() }
                             devOpen = true
+                        },
+                        onOpenKeepAlive = {
+                            scope.launch { drawerState.close() }
+                            showKeepAlive = true
                         }
                     )
                 }
@@ -179,6 +205,14 @@ fun HomeScreen(
                 viewModel.delete(transaction)
                 editing = null
             }
+        )
+    }
+
+    if (showKeepAlive) {
+        KeepAliveDialog(
+            ignoringOptimizations = isIgnoringBatteryOptimizations(context),
+            onDismiss = { showKeepAlive = false },
+            onOpenSettings = { openBatteryOptimizationSettings(context) }
         )
     }
 }
@@ -359,4 +393,62 @@ private fun isListenerEnabled(context: Context): Boolean {
 
 private fun openNotificationSettings(context: Context) {
     context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+}
+
+// Diálogo para evitar que Samsung "duerma" la app y deje de capturar
+// notificaciones. En Samsung el permiso automático suele estar bloqueado,
+// por eso se guía al usuario a los ajustes manuales + un enlace directo.
+@Composable
+private fun KeepAliveDialog(
+    ignoringOptimizations: Boolean,
+    onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBackground,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Text("No dormir la app", color = TextPrimary, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = if (ignoringOptimizations) {
+                        "Ya está excluida de la optimización de batería."
+                    } else {
+                        "La app puede dormirse y dejar de capturar notificaciones."
+                    },
+                    color = if (ignoringOptimizations) Volt else Coral,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "Configuración → Batería → Límites de uso en segundo plano → " +
+                        "Apps que nunca se ponen en reposo → agrega 'Consolidado de Gastos'.",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings) {
+                Text("Abrir ajustes de batería", color = Volt, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar", color = TextSecondary)
+            }
+        }
+    )
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openBatteryOptimizationSettings(context: Context) {
+    context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
 }

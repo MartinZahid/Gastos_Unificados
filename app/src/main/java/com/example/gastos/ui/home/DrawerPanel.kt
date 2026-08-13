@@ -56,7 +56,8 @@ internal fun DrawerPanel(
     onQueryChange: (String) -> Unit,
     onBankSelected: (String?) -> Unit,
     onClose: () -> Unit,
-    onOpenDev: () -> Unit
+    onOpenDev: () -> Unit,
+    onOpenKeepAlive: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -145,6 +146,35 @@ internal fun DrawerPanel(
             ) {
                 Text(
                     text = "Modo dev",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Volt,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Surface(
+            onClick = onOpenKeepAlive,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = CardElevated,
+            border = BorderStroke(1.dp, BorderLine)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "No dormir la app",
                     color = TextPrimary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
