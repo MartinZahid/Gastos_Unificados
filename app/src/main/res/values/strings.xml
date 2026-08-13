@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Consolidación de Gastos</string>
+    <string name="notification_listener_label">Escuchador de notificaciones bancarias</string>
+</resources>
