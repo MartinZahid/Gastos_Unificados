@@ -39,11 +39,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gastos.data.Transaction
 import com.example.gastos.ui.dev.DevScreen
@@ -85,7 +90,18 @@ fun HomeScreen(
     val selectedBank by viewModel.selectedBank.collectAsStateWithLifecycle()
     val unreviewedFailureCount by viewModel.unreviewedFailureCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val listenerEnabled = remember { isListenerEnabled(context) }
+    var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                listenerEnabled = isListenerEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -239,7 +255,7 @@ private fun Header(
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                text = "TDC · 100% LOCAL",
+                text = "GASTOMETRO · 100% LOCAL",
                 color = Volt,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -247,7 +263,7 @@ private fun Header(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Consolidado de Gastos",
+                text = "GastoMetro",
                 color = TextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black
@@ -427,7 +443,7 @@ private fun KeepAliveDialog(
                 )
                 Text(
                     text = "Configuración → Batería → Límites de uso en segundo plano → " +
-                        "Apps que nunca se ponen en reposo → agrega 'Consolidado de Gastos'.",
+                        "Apps que nunca se ponen en reposo → agrega 'GastoMetro'.",
                     color = TextSecondary,
                     fontSize = 12.sp
                 )

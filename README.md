@@ -1,4 +1,4 @@
-# Consolidado de Gastos
+# GastoMetro
 
 App Android 100% local que consolida tus gastos de tarjeta de crédito leyendo las **notificaciones de los bancos** en tu teléfono: detecta el comercio, el monto y el banco automáticamente y los agrega a un solo registro, sin enviar ningún dato a internet.
 
@@ -78,7 +78,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ### Primeros pasos en el teléfono
 
 1. Abre la app y toca **Permisos** (o el chip de estado en la cabecera).
-2. Activa "Permisos de notificaciones" → permite el acceso a **Consolidado de Gastos**.
+2. Activa "Permisos de notificaciones" → permite el acceso a **GastoMetro**.
 3. Asegúrate de que la app de tu banco tenga **"Escucha activa"** / notificaciones habilitadas.
 4. Cada compra se irá sumando automáticamente. Si algo no se reconoce, entra al **Modo dev** y enséñale la frase.
 

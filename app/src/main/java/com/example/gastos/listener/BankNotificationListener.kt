@@ -245,6 +245,7 @@ class BankNotificationListener : NotificationListenerService() {
             "mx.bancosantander.supermovil",
             "com.santander.latam.mx",
             "com.banamex.banamex",
+            "com.rappi",
             "com.example.gastos"
         )
 
@@ -256,6 +257,7 @@ class BankNotificationListener : NotificationListenerService() {
             "mx.bancosantander.supermovil" to "Santander",
             "com.santander.latam.mx" to "Santander",
             "com.banamex.banamex" to "Citibanamex",
+            "com.rappi" to "Rappi",
             "com.example.gastos" to "Pruebas"
         )
     }
