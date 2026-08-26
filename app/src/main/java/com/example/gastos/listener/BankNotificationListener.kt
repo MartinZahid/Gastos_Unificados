@@ -215,8 +215,8 @@ class BankNotificationListener : NotificationListenerService() {
         private const val ALERT_CHANNEL_ID = "unreviewed_failures"
         private const val ALERT_NOTIFICATION_ID = 2
 
-        private const val PREFS_NAME = "listener_prefs"
-        private const val PREF_LAST_ALERT_MILLIS = "last_unreviewed_alert_millis"
+        internal const val PREFS_NAME = "listener_prefs"
+        internal const val PREF_LAST_ALERT_MILLIS = "last_unreviewed_alert_millis"
 
         // Mínimo de fallos acumulados antes de avisar.
         private const val UNREVIEWED_ALERT_THRESHOLD = 3

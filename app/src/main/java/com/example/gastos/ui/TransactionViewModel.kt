@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import android.content.Context
 import com.example.gastos.data.AppDatabase
 import com.example.gastos.data.LearnedPattern
 import com.example.gastos.data.LearnedPatternDao
@@ -13,6 +14,7 @@ import com.example.gastos.data.NotificationLog
 import com.example.gastos.data.NotificationLogDao
 import com.example.gastos.data.Transaction
 import com.example.gastos.data.TransactionDao
+import com.example.gastos.listener.BankNotificationListener
 import com.example.gastos.ui.common.parseAmountInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +38,7 @@ data class Summary(
 )
 
 class TransactionViewModel(
+    private val app: Application,
     private val dao: TransactionDao,
     private val logDao: NotificationLogDao,
     private val learnedDao: LearnedPatternDao
@@ -144,8 +147,16 @@ class TransactionViewModel(
 
     // El usuario ya vio el log de "no reconocidas" en Modo dev: apaga la
     // alerta hasta que llegue una nueva notificación sin parsear.
+    // Además limpia el enfriamiento para que un problema distinto
+    // pueda avisar de inmediato sin esperar 12 h.
     fun markFailuresReviewed() {
-        viewModelScope.launch { logDao.markFailuresReviewed() }
+        viewModelScope.launch {
+            logDao.markFailuresReviewed()
+            app.getSharedPreferences(BankNotificationListener.PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .remove(BankNotificationListener.PREF_LAST_ALERT_MILLIS)
+                .apply()
+        }
     }
 
     fun deleteLearned(id: Long) {
@@ -194,7 +205,7 @@ class TransactionViewModel(
             initializer {
                 val app = this[APPLICATION_KEY] as Application
                 val db = AppDatabase.getInstance(app)
-                TransactionViewModel(db.transactionDao(), db.notificationLogDao(), db.learnedPatternDao())
+                TransactionViewModel(app, db.transactionDao(), db.notificationLogDao(), db.learnedPatternDao())
             }
         }
     }
