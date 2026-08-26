@@ -85,6 +85,7 @@ class BankNotificationListener : NotificationListenerService() {
         if (channelId == STATUS_CHANNEL_ID || channelId == ALERT_CHANNEL_ID) return
 
         val packageName = sbn.packageName
+        if (packageName in IgnoredPackages) return
         val extras = sbn.notification?.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
@@ -223,6 +224,17 @@ class BankNotificationListener : NotificationListenerService() {
         // No repetir el aviso antes de que pase este tiempo, aunque sigan
         // llegando fallos nuevos.
         private const val ALERT_COOLDOWN_MILLIS = 12 * 60 * 60 * 1000L // 12h
+
+        // Paquetes del sistema/OS que generan notificaciones ajenas a
+        // transacciones bancarias (batería, routines Samsung, etc.).
+        // Se ignoran para no ensuciar el log de Modo dev.
+        private val IgnoredPackages = setOf(
+            "com.android.systemui",
+            "com.samsung.android.app.routines",
+            "com.samsung.android.server.notification",
+            "com.samsung.android.wifi.largetcpbuffer.resources",
+            "com.sec.android.app.launcher"
+        )
 
         // Paquetes de apps bancarias cuyas notificaciones generan movimientos.
         val TargetPackages: Set<String> = setOf(
