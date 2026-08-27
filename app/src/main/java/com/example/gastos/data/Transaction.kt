@@ -2,9 +2,8 @@ package com.example.gastos.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.Instant
+import java.time.ZoneId
 
 @Entity(tableName = "transactions")
 data class Transaction(
@@ -17,8 +16,12 @@ data class Transaction(
     val month: String = computeMonth(dateMillis)
 ) {
     companion object {
-        private val monthFormat = SimpleDateFormat("yyyy-MM", Locale.US)
-
-        fun computeMonth(millis: Long): String = monthFormat.format(Date(millis))
+        // java.time es thread-safe, a diferencia de SimpleDateFormat: las
+        // transacciones se crean desde corrutinas concurrentes (listener en
+        // Dispatchers.IO) y un formateador compartido corrompería el mes.
+        fun computeMonth(millis: Long): String =
+            Instant.ofEpochMilli(millis)
+                .atZone(ZoneId.systemDefault())
+                .let { "%04d-%02d".format(it.year, it.monthValue) }
     }
 }
