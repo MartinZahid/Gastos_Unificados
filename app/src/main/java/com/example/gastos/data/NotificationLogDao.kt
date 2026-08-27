@@ -45,15 +45,20 @@ interface NotificationLogDao {
     // Notificaciones de un banco soportado (inTargetList) que el parser NO
     // logró leer y que el usuario todavía no ha revisado. Es la señal para
     // avisar de forma proactiva "se te pueden estar perdiendo gastos".
+    // Los fallos "sin monto" (promos, saldos, avisos) no cuentan: un gasto
+    // real siempre trae monto, y los avisos de bancos como Santander lloverían
+    // en el contador disparando alertas falsas.
     @Query(
         "SELECT COUNT(*) FROM notification_log " +
-            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0 " +
+            "AND reason != 'sin monto'"
     )
     fun observeUnreviewedFailureCount(): Flow<Int>
 
     @Query(
         "SELECT COUNT(*) FROM notification_log " +
-            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0 " +
+            "AND reason != 'sin monto'"
     )
     suspend fun unreviewedFailureCount(): Int
 
@@ -61,7 +66,8 @@ interface NotificationLogDao {
     // alerta no se repita con las mismas entradas ya vistas.
     @Query(
         "UPDATE notification_log SET reviewed = 1 " +
-            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0"
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0 " +
+            "AND reason != 'sin monto'"
     )
     suspend fun markFailuresReviewed()
 }
