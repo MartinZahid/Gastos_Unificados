@@ -96,6 +96,17 @@ object NotificationParser {
         listOf(boundaryWords, boundaryMixedTokens, boundaryDates, boundaryAmounts).joinToString("|")
     )
 
+    // Relleno que algunos patrones capturan antes del verdadero comercio:
+    // "Compra con tu tarjeta ..." -> captura "CON TU TARJETA" -> corte en
+    // "tarjeta" deja "CON TU". Se elimina al inicio quedando el comercio
+    // real si lo hay; si solo era relleno, la captura queda vacía y la
+    // notificación pasa a fallo (revisión en Modo dev) en vez de crear un
+    // movimiento con basura como comercio.
+    private val leadingFiller = Regex(
+        """^(?:(?:con|de|en|por)\s+(?:tu|su)|(?:con|tu|su|de|en|por)\s+)""",
+        RegexOption.IGNORE_CASE
+    )
+
     fun parse(
         rawText: String,
         extraKeywords: List<String> = emptyList(),
@@ -168,6 +179,13 @@ object NotificationParser {
             s = s.substring(0, cut.range.first).trim()
         }
         s = s.trimEnd(',', '.', ':', '-', ';', '(', ')', '·')
+        // Elimina relleno inicial ("con tu", "tu", "de", ...) que algunos
+        // patrones capturan antes del comercio real.
+        repeat(3) {
+            val stripped = leadingFiller.replaceFirst(s, "").trim()
+            if (stripped == s) return@repeat
+            s = stripped
+        }
         return s.takeIf { it.length >= 2 }
     }
 }
