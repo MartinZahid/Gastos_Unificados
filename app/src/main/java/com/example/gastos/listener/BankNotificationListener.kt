@@ -92,6 +92,18 @@ class BankNotificationListener : NotificationListenerService() {
 
         scope.launch {
             val db = AppDatabase.getInstance(this@BankNotificationListener)
+
+            // Samsung entrega la misma notificación dos veces y algunos
+            // bancos la republícan; un reenvío idéntico reciente no se
+            // procesa para no duplicar movimientos ni ensuciar el log.
+            if (db.notificationLogDao().countRecentDuplicates(
+                    packageName,
+                    title,
+                    text,
+                    System.currentTimeMillis() - DEDUP_WINDOW_MILLIS
+                ) > 0
+            ) return@launch
+
             val patterns = db.learnedPatternDao().getAll()
             val extraKeywords = patterns.filter { it.kind == LearnedPattern.COMPRA }.map { it.keyword }
             val ignoreKeywords = patterns.filter { it.kind == LearnedPattern.IGNORAR }.map { it.keyword }
@@ -99,10 +111,10 @@ class BankNotificationListener : NotificationListenerService() {
             val result = NotificationParser.parse("$title $text", extraKeywords, ignoreKeywords)
             val inTarget = packageName in TargetPackages
 
-            // Registramos TODAS las notificaciones (parseadas o no) para depurar
-            // patrones nuevos desde DevScreen; solo creamos una Transaction si el
-            // paquete está en la lista de apps bancarias soportadas (inTarget),
-            // para no ensuciar los movimientos con avisos de apps ajenas.
+            // Registramos las notificaciones para depurar patrones nuevos
+            // desde DevScreen; solo creamos una Transaction si el paquete
+            // está en la lista de apps bancarias soportadas (inTarget), para
+            // no ensuciar los movimientos con avisos de apps ajenas.
             when (result) {
                 is ParseResult.Success -> {
                     // Banco por paquete, con respaldo al banco detectado en el
@@ -133,17 +145,24 @@ class BankNotificationListener : NotificationListenerService() {
                 }
                 is ParseResult.Failure -> {
                     val bank = BankNames[packageName] ?: packageName
-                    db.notificationLogDao().insert(
-                        NotificationLog(
-                            packageName = packageName,
-                            title = title,
-                            text = text,
-                            parsed = false,
-                            reason = result.reason,
-                            bank = bank,
-                            inTargetList = inTarget
+                    // Solo registramos sin monto de apps bancarias soportadas;
+                    // el resto (WhatsApp, Gmail, estado USB...) es ruido que
+                    // llena el log y saca del límite las fallas reales de un
+                    // banco. Un fallo "sin comercio" (hubo monto) de una app
+                    // desconocida sí interesa: puede ser un banco nuevo.
+                    if (inTarget || result.reason != "sin monto") {
+                        db.notificationLogDao().insert(
+                            NotificationLog(
+                                packageName = packageName,
+                                title = title,
+                                text = text,
+                                parsed = false,
+                                reason = result.reason,
+                                bank = bank,
+                                inTargetList = inTarget
+                            )
                         )
-                    )
+                    }
                     // Solo alertamos por fallos de apps bancarias soportadas:
                     // si un banco cambia el formato de su notificación, el
                     // regex deja de reconocerla y el gasto se perdería en
@@ -225,6 +244,11 @@ class BankNotificationListener : NotificationListenerService() {
         // llegando fallos nuevos.
         private const val ALERT_COOLDOWN_MILLIS = 12 * 60 * 60 * 1000L // 12h
 
+        // Ventana para detectar una misma notificación reenviada (Samsung
+        // dobla la entrega): 60 s cubren el reenvío sin regar dos compras
+        // idénticas legítimas, que es muy raro en tan poco tiempo.
+        private const val DEDUP_WINDOW_MILLIS = 60 * 1000L
+
         // Paquetes del sistema/OS que generan notificaciones ajenas a
         // transacciones bancarias (batería, routines Samsung, etc.).
         // Se ignoran para no ensuciar el log de Modo dev.
@@ -246,6 +270,7 @@ class BankNotificationListener : NotificationListenerService() {
             "com.santander.latam.mx",
             "com.banamex.banamex",
             "com.rappi",
+            "org.microemu.android.model.common.VTUserApplicationBNRTMB",
             "com.example.gastos"
         )
 
@@ -258,6 +283,7 @@ class BankNotificationListener : NotificationListenerService() {
             "com.santander.latam.mx" to "Santander",
             "com.banamex.banamex" to "Citibanamex",
             "com.rappi" to "Rappi",
+            "org.microemu.android.model.common.VTUserApplicationBNRTMB" to "Banorte",
             "com.example.gastos" to "Pruebas"
         )
     }

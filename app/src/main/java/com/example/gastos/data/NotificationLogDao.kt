@@ -11,10 +11,29 @@ interface NotificationLogDao {
     @Insert
     suspend fun insert(log: NotificationLog)
 
+    // Cuenta reenvíos recientes e idénticos (misma app, mismo título y texto).
+    // Samsung y algunos bancos entregan la misma notificación dos veces o la
+    // vuelven a publicar; sirve para no crear una transacción por cada copia.
+    @Query(
+        "SELECT COUNT(*) FROM notification_log " +
+            "WHERE packageName = :packageName AND title = :title AND text = :text " +
+            "AND dateMillis >= :sinceMillis"
+    )
+    suspend fun countRecentDuplicates(
+        packageName: String,
+        title: String,
+        text: String,
+        sinceMillis: Long
+    ): Int
+
     @Query("SELECT * FROM notification_log ORDER BY dateMillis DESC, id DESC LIMIT 200")
     fun observeAll(): Flow<List<NotificationLog>>
 
-    @Query("DELETE FROM notification_log WHERE id NOT IN (SELECT id FROM notification_log ORDER BY dateMillis DESC, id DESC LIMIT 200)")
+    @Query(
+        "DELETE FROM notification_log WHERE id NOT IN (" +
+            "SELECT id FROM notification_log " +
+            "ORDER BY inTargetList DESC, dateMillis DESC, id DESC LIMIT 200)"
+    )
     suspend fun prune()
 
     @Query("DELETE FROM notification_log")
