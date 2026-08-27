@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import android.content.Context
 import com.example.gastos.data.AppDatabase
+import com.example.gastos.data.BankMonthSummary
 import com.example.gastos.data.LearnedPattern
 import com.example.gastos.data.LearnedPatternDao
 import com.example.gastos.data.NotificationLog
@@ -16,11 +17,14 @@ import com.example.gastos.data.Transaction
 import com.example.gastos.data.TransactionDao
 import com.example.gastos.listener.BankNotificationListener
 import com.example.gastos.ui.common.parseAmountInput
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -37,6 +41,7 @@ data class Summary(
     val byBank: List<BankShare> = emptyList()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TransactionViewModel(
     private val app: Application,
     private val dao: TransactionDao,
@@ -80,6 +85,59 @@ class TransactionViewModel(
     // Modo dev) para no perder gastos silenciosamente.
     val unreviewedFailureCount: StateFlow<Int> = logDao.observeUnreviewedFailureCount()
         .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, 0)
+
+    // --- Histórico mensual por banco ---
+
+    val recentMonths: StateFlow<List<String>> = dao.observeRecentMonths(6)
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
+
+    // Totales agrupados por mes y banco, para la gráfica de barras apiladas.
+    val monthlyByBank: StateFlow<Map<String, Map<String, Double>>> =
+        dao.observeMonthlyByBank()
+            .map { rows ->
+                rows.groupBy({ it.month }, { it.bank to it.total })
+                    .mapValues { (_, pairs) -> pairs.toMap() }
+            }
+            .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyMap())
+
+    private val _selectedMonth = MutableStateFlow("")
+    val selectedMonth: StateFlow<String> = _selectedMonth.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            recentMonths.collect { months ->
+                if (_selectedMonth.value.isBlank() && months.isNotEmpty()) {
+                    _selectedMonth.value = months.first()
+                }
+            }
+        }
+    }
+
+    val bankSummaryForMonth: StateFlow<List<BankMonthSummary>> =
+        _selectedMonth.flatMapLatest { month ->
+            if (month.isBlank()) flowOf(emptyList())
+            else dao.observeByBankAndMonth(month)
+        }.stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
+
+    private val _selectedHistoryBank = MutableStateFlow<String?>(null)
+    val selectedHistoryBank: StateFlow<String?> = _selectedHistoryBank.asStateFlow()
+
+    val transactionsByMonthAndBank: StateFlow<List<Transaction>> =
+        combine(_selectedMonth, _selectedHistoryBank) { month, bank -> month to bank }
+            .flatMapLatest { (month, bank) ->
+                if (month.isBlank()) flowOf(emptyList())
+                else if (bank.isNullOrBlank()) dao.observeByMonth(month)
+                else dao.observeByMonthAndBank(month, bank)
+            }.stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
+
+    fun selectMonth(month: String) {
+        _selectedMonth.value = month
+        _selectedHistoryBank.value = null
+    }
+
+    fun selectHistoryBank(bank: String?) {
+        _selectedHistoryBank.value = bank
+    }
 
     fun setQuery(value: String) {
         _query.value = value

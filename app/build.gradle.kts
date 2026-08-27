@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.gastos"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.gastos"
@@ -57,6 +57,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

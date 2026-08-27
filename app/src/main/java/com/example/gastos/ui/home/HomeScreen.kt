@@ -46,7 +46,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +64,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gastos.data.Transaction
 import com.example.gastos.ui.dev.DevScreen
+import com.example.gastos.ui.monthly.MonthlyHistoryScreen
 import com.example.gastos.ui.TransactionViewModel
 import com.example.gastos.ui.common.CornerCutShape
 import com.example.gastos.ui.common.formatMoney
@@ -108,6 +108,7 @@ fun HomeScreen(
 
     var editing by remember { mutableStateOf<Transaction?>(null) }
     var devOpen by remember { mutableStateOf(false) }
+    var historyOpen by remember { mutableStateOf(false) }
     var showKeepAlive by remember { mutableStateOf(false) }
 
     // Pide el permiso de notificaciones al arrancar: necesario para la
@@ -127,6 +128,11 @@ fun HomeScreen(
         DevScreen(
             viewModel = viewModel,
             onBack = { devOpen = false }
+        )
+    } else if (historyOpen) {
+        MonthlyHistoryScreen(
+            viewModel = viewModel,
+            onBack = { historyOpen = false }
         )
     } else {
         ModalNavigationDrawer(
@@ -148,6 +154,10 @@ fun HomeScreen(
                         onOpenDev = {
                             scope.launch { drawerState.close() }
                             devOpen = true
+                        },
+                        onOpenHistory = {
+                            scope.launch { drawerState.close() }
+                            historyOpen = true
                         },
                         onOpenKeepAlive = {
                             scope.launch { drawerState.close() }

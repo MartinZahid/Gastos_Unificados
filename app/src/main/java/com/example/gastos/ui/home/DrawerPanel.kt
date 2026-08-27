@@ -19,9 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -59,6 +59,7 @@ internal fun DrawerPanel(
     onBankSelected: (String?) -> Unit,
     onClose: () -> Unit,
     onOpenDev: () -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenKeepAlive: () -> Unit,
     unreviewedFailureCount: Int = 0
 ) {
@@ -174,7 +175,36 @@ internal fun DrawerPanel(
                     }
                 }
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Volt,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Surface(
+            onClick = onOpenHistory,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = CardElevated,
+            border = BorderStroke(1.dp, BorderLine)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Histórico",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = Volt,
                     modifier = Modifier.size(16.dp)
@@ -203,7 +233,7 @@ internal fun DrawerPanel(
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = Volt,
                     modifier = Modifier.size(16.dp)
