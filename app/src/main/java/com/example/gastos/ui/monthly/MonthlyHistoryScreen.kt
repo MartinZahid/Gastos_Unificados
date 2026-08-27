@@ -129,7 +129,7 @@ fun MonthlyHistoryScreen(
             )
             Spacer(Modifier.height(12.dp))
             MonthlyBarChart(
-                months = recentMonths,
+                months = recentMonths.reversed(),
                 banks = chartBanks,
                 totalsByMonthAndBank = chartData
             )
