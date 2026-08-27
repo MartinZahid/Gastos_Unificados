@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,12 +7,19 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
-    namespace = "com.example.gastos"
+    namespace = "com.Flood.gastometro"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.gastos"
+        applicationId = "com.Flood.gastometro"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

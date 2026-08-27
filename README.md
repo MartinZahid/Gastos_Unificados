@@ -45,7 +45,7 @@ La escucha está configurada para estos paquetes (banca "Activa" con notificacio
 | BBVA | `com.bancomer.mbanking`, `com.bbva.bancomer.app` |
 | Santander | `mx.bancosantander.supermovil`, `com.santander.latam.mx` |
 | Citibanamex | `com.banamex.banamex` |
-| App propia (pruebas) | `com.example.gastos` |
+| App propia (pruebas) | `com.Flood.gastometro` |
 
 Para agregar otro banco, añade su paquete en `TargetPackages` y su nombre en `BankNames` dentro de `BankNotificationListener.kt`.
 
