@@ -24,10 +24,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class BankNotificationListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Serializa el chequeo de duplicados y la inserción: dos notificaciones
+    // simultáneas podrían pasar ambas la verificación antes de insertar y
+    // duplicar el movimiento. Con el mutex el chequeo+insert es atómico.
+    private val dedupMutex = Mutex()
 
     override fun onCreate() {
         super.onCreate()
@@ -93,86 +100,88 @@ class BankNotificationListener : NotificationListenerService() {
         scope.launch {
             val db = AppDatabase.getInstance(this@BankNotificationListener)
 
-            // Samsung entrega la misma notificación dos veces y algunos
-            // bancos la republícan; un reenvío idéntico reciente no se
-            // procesa para no duplicar movimientos ni ensuciar el log.
-            if (db.notificationLogDao().countRecentDuplicates(
-                    packageName,
-                    title,
-                    text,
-                    System.currentTimeMillis() - DEDUP_WINDOW_MILLIS
-                ) > 0
-            ) return@launch
+            dedupMutex.withLock {
+                // Samsung entrega la misma notificación dos veces y algunos
+                // bancos la republícan; un reenvío idéntico reciente no se
+                // procesa para no duplicar movimientos ni ensuciar el log.
+                if (db.notificationLogDao().countRecentDuplicates(
+                        packageName,
+                        title,
+                        text,
+                        System.currentTimeMillis() - DEDUP_WINDOW_MILLIS
+                    ) > 0
+                ) return@launch
 
-            val patterns = db.learnedPatternDao().getAll()
-            val extraKeywords = patterns.filter { it.kind == LearnedPattern.COMPRA }.map { it.keyword }
-            val ignoreKeywords = patterns.filter { it.kind == LearnedPattern.IGNORAR }.map { it.keyword }
+                val patterns = db.learnedPatternDao().getAll()
+                val extraKeywords = patterns.filter { it.kind == LearnedPattern.COMPRA }.map { it.keyword }
+                val ignoreKeywords = patterns.filter { it.kind == LearnedPattern.IGNORAR }.map { it.keyword }
 
-            val result = NotificationParser.parse("$title $text", extraKeywords, ignoreKeywords)
-            val inTarget = packageName in TargetPackages
+                val result = NotificationParser.parse("$title $text", extraKeywords, ignoreKeywords)
+                val inTarget = packageName in TargetPackages
 
-            // Registramos las notificaciones para depurar patrones nuevos
-            // desde DevScreen; solo creamos una Transaction si el paquete
-            // está en la lista de apps bancarias soportadas (inTarget), para
-            // no ensuciar los movimientos con avisos de apps ajenas.
-            when (result) {
-                is ParseResult.Success -> {
-                    // Banco por paquete, con respaldo al banco detectado en el
-                    // texto (p. ej. "RappiCard" -> Rappi) para apps aún no mapeadas.
-                    val bank = BankNames[packageName] ?: result.purchase.bank ?: packageName
-                    db.notificationLogDao().insert(
-                        NotificationLog(
-                            packageName = packageName,
-                            title = title,
-                            text = text,
-                            parsed = true,
-                            merchant = result.purchase.merchant,
-                            amount = result.purchase.amount,
-                            bank = bank,
-                            inTargetList = inTarget
-                        )
-                    )
-                    if (inTarget) {
-                        db.transactionDao().insert(
-                            Transaction(
-                                merchant = result.purchase.merchant,
-                                amount = result.purchase.amount,
-                                bank = bank,
-                                dateMillis = System.currentTimeMillis()
-                            )
-                        )
-                    }
-                }
-                is ParseResult.Failure -> {
-                    val bank = BankNames[packageName] ?: packageName
-                    // Solo registramos sin monto de apps bancarias soportadas;
-                    // el resto (WhatsApp, Gmail, estado USB...) es ruido que
-                    // llena el log y saca del límite las fallas reales de un
-                    // banco. Un fallo "sin comercio" (hubo monto) de una app
-                    // desconocida sí interesa: puede ser un banco nuevo.
-                    if (inTarget || result.reason != "sin monto") {
+                // Registramos las notificaciones para depurar patrones nuevos
+                // desde DevScreen; solo creamos una Transaction si el paquete
+                // está en la lista de apps bancarias soportadas (inTarget), para
+                // no ensuciar los movimientos con avisos de apps ajenas.
+                when (result) {
+                    is ParseResult.Success -> {
+                        // Banco por paquete, con respaldo al banco detectado en el
+                        // texto (p. ej. "RappiCard" -> Rappi) para apps aún no mapeadas.
+                        val bank = BankNames[packageName] ?: result.purchase.bank ?: packageName
                         db.notificationLogDao().insert(
                             NotificationLog(
                                 packageName = packageName,
                                 title = title,
                                 text = text,
-                                parsed = false,
-                                reason = result.reason,
+                                parsed = true,
+                                merchant = result.purchase.merchant,
+                                amount = result.purchase.amount,
                                 bank = bank,
                                 inTargetList = inTarget
                             )
                         )
+                        if (inTarget) {
+                            db.transactionDao().insert(
+                                Transaction(
+                                    merchant = result.purchase.merchant,
+                                    amount = result.purchase.amount,
+                                    bank = bank,
+                                    dateMillis = System.currentTimeMillis()
+                                )
+                            )
+                        }
                     }
-                    // Solo alertamos por fallos de apps bancarias soportadas:
-                    // si un banco cambia el formato de su notificación, el
-                    // regex deja de reconocerla y el gasto se perdería en
-                    // silencio si nadie revisa Modo dev por su cuenta.
-                    if (inTarget) maybeAlertUnreviewedFailures()
+                    is ParseResult.Failure -> {
+                        val bank = BankNames[packageName] ?: packageName
+                        // Solo registramos sin monto de apps bancarias soportadas;
+                        // el resto (WhatsApp, Gmail, estado USB...) es ruido que
+                        // llena el log y saca del límite las fallas reales de un
+                        // banco. Un fallo "sin comercio" (hubo monto) de una app
+                        // desconocida sí interesa: puede ser un banco nuevo.
+                        if (inTarget || result.reason != "sin monto") {
+                            db.notificationLogDao().insert(
+                                NotificationLog(
+                                    packageName = packageName,
+                                    title = title,
+                                    text = text,
+                                    parsed = false,
+                                    reason = result.reason,
+                                    bank = bank,
+                                    inTargetList = inTarget
+                                )
+                            )
+                        }
+                        // Solo alertamos por fallos de apps bancarias soportadas:
+                        // si un banco cambia el formato de su notificación, el
+                        // regex deja de reconocerla y el gasto se perdería en
+                        // silencio si nadie revisa Modo dev por su cuenta.
+                        if (inTarget) maybeAlertUnreviewedFailures()
+                    }
                 }
+                // El log se mantiene acotado a las últimas 200 entradas para que
+                // la pantalla dev no crezca sin límite en memoria.
+                db.notificationLogDao().prune()
             }
-            // El log se mantiene acotado a las últimas 200 entradas para que
-            // la pantalla dev no crezca sin límite en memoria.
-            db.notificationLogDao().prune()
         }
     }
 
