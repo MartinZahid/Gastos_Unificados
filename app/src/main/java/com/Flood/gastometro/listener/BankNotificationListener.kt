@@ -261,12 +261,16 @@ class BankNotificationListener : NotificationListenerService() {
         // Paquetes del sistema/OS que generan notificaciones ajenas a
         // transacciones bancarias (batería, routines Samsung, etc.).
         // Se ignoran para no ensuciar el log de Modo dev.
+        // También las apps de mensajería (WhatsApp) no son gastos y no deben
+        // leerse ni aparecer en el log.
         private val IgnoredPackages = setOf(
             "com.android.systemui",
             "com.samsung.android.app.routines",
             "com.samsung.android.server.notification",
             "com.samsung.android.wifi.largetcpbuffer.resources",
-            "com.sec.android.app.launcher"
+            "com.sec.android.app.launcher",
+            "com.whatsapp",
+            "com.whatsapp.w4b"
         )
 
         // Paquetes de apps bancarias cuyas notificaciones generan movimientos.

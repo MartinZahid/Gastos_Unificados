@@ -66,6 +66,32 @@ class TransactionViewModel(
             }
         }.stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
+    // --- Home orientada al mes ---
+    // La pantalla principal muestra el gasto de un mes seleccionado (por
+    // defecto el actual) en vez del total acumulado de todos los tiempos.
+    private val _homeMonth = MutableStateFlow(Transaction.computeMonth(System.currentTimeMillis()))
+    val homeMonth: StateFlow<String> = _homeMonth.asStateFlow()
+
+    val homeTransactions: StateFlow<List<Transaction>> =
+        combine(_homeMonth, _query, _selectedBank) { month, query, bank -> Triple(month, query, bank) }
+            .flatMapLatest { (month, query, bank) ->
+                dao.observeByMonth(month).map { list ->
+                    list.filter { tx ->
+                        (query.isBlank() || tx.merchant.contains(query, ignoreCase = true)) &&
+                            (bank == null || tx.bank == bank)
+                    }
+                }
+            }
+            .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
+
+    val homeSummary: StateFlow<Summary> = homeTransactions
+        .map { list -> buildSummary(list) }
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, Summary())
+
+    fun selectHomeMonth(month: String) {
+        _homeMonth.value = month
+    }
+
     val banks: StateFlow<List<String>> = all
         .map { list -> list.map { it.bank }.distinct().sorted() }
         .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
@@ -151,24 +177,6 @@ class TransactionViewModel(
 
     fun selectBank(value: String?) {
         _selectedBank.value = value
-    }
-
-    fun simulateTransaction() {
-        val merchants = listOf(
-            "Supermercado", "Cinepolis", "OXXO", "Netflix", "Uber",
-            "Starbucks", "Liverpool", "Farmacia del Ahorro"
-        )
-        val banks = listOf("BBVA", "Citibanamex", "Santander", "Banorte")
-        viewModelScope.launch {
-            dao.insert(
-                Transaction(
-                    merchant = merchants.random(),
-                    bank = banks.random(),
-                    amount = (50..5000).random() / 100.0,
-                    dateMillis = System.currentTimeMillis()
-                )
-            )
-        }
     }
 
     fun save(transaction: Transaction) {

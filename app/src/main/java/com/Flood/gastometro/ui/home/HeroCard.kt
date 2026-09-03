@@ -35,7 +35,7 @@ internal fun HeroCard(summary: Summary) {
             .padding(horizontal = 22.dp, vertical = 20.dp)
     ) {
         Text(
-            text = "TOTAL GASTADO",
+            text = "GASTO DEL MES",
             color = Ink,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,

@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.Flood.gastometro.data.Transaction
 import com.Flood.gastometro.ui.dev.DevScreen
+import com.Flood.gastometro.ui.monthly.MonthSelector
 import com.Flood.gastometro.ui.monthly.MonthlyHistoryScreen
 import com.Flood.gastometro.ui.TransactionViewModel
 import com.Flood.gastometro.ui.common.CornerCutShape
@@ -83,12 +84,15 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     viewModel: TransactionViewModel = viewModel(factory = TransactionViewModel.Factory)
 ) {
-    val transactions by viewModel.filteredTransactions.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val banks by viewModel.banks.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val selectedBank by viewModel.selectedBank.collectAsStateWithLifecycle()
     val unreviewedFailureCount by viewModel.unreviewedFailureCount.collectAsStateWithLifecycle()
+    val homeMonth by viewModel.homeMonth.collectAsStateWithLifecycle()
+    val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
+    val homeTransactions by viewModel.homeTransactions.collectAsStateWithLifecycle()
+    val recentMonths by viewModel.recentMonths.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
 
@@ -110,6 +114,7 @@ fun HomeScreen(
     var devOpen by remember { mutableStateOf(false) }
     var historyOpen by remember { mutableStateOf(false) }
     var showKeepAlive by remember { mutableStateOf(false) }
+    var showManualAdd by remember { mutableStateOf(false) }
 
     // Pide el permiso de notificaciones al arrancar: necesario para la
     // notificación permanente que mantiene vivo el servicio de escucha.
@@ -184,20 +189,29 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(18.dp))
 
-                HeroCard(summary = summary)
+                MonthSelector(
+                    months = recentMonths,
+                    selected = homeMonth,
+                    onSelected = viewModel::selectHomeMonth,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                HeroCard(summary = homeSummary)
 
                 Spacer(Modifier.height(14.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MetricTile(
-                        label = "ESTE MES",
-                        value = formatMoney(summary.thisMonth),
+                        label = "MAYOR GASTO",
+                        value = formatMoney(homeSummary.max),
                         valueColor = Coral,
                         modifier = Modifier.weight(1f)
                     )
                     MetricTile(
-                        label = "MAYOR GASTO",
-                        value = formatMoney(summary.max),
+                        label = "PROMEDIO",
+                        value = formatMoney(homeSummary.average),
                         valueColor = Coral,
                         modifier = Modifier.weight(1f)
                     )
@@ -206,14 +220,15 @@ fun HomeScreen(
                 Spacer(Modifier.height(14.dp))
 
                 Controls(
+                    listenerEnabled = listenerEnabled,
                     onOpenSettings = { openNotificationSettings(context) },
-                    onSimulate = { viewModel.simulateTransaction() }
+                    onAddExpense = { showManualAdd = true }
                 )
 
                 Spacer(Modifier.height(14.dp))
 
                 TransactionsContainer(
-                    transactions = transactions,
+                    transactions = homeTransactions,
                     modifier = Modifier.weight(1f),
                     onTransactionClick = { editing = it }
                 )
@@ -241,6 +256,16 @@ fun HomeScreen(
             ignoringOptimizations = isIgnoringBatteryOptimizations(context),
             onDismiss = { showKeepAlive = false },
             onOpenSettings = { openBatteryOptimizationSettings(context) }
+        )
+    }
+
+    if (showManualAdd) {
+        ManualAddDialog(
+            onDismiss = { showManualAdd = false },
+            onSave = { merchant, amount, bank ->
+                viewModel.insertPurchase(merchant, amount, bank)
+                showManualAdd = false
+            }
         )
     }
 }
@@ -316,27 +341,49 @@ private fun StatusChip(listenerEnabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Controls(onOpenSettings: () -> Unit, onSimulate: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(
-            onClick = onOpenSettings,
-            modifier = Modifier.weight(1f),
-            shape = CornerCutShape(radius = 18.dp, cut = 20.dp),
-            color = CardBackground,
-            border = BorderStroke(1.dp, BorderLine)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center
+private fun Controls(
+    listenerEnabled: Boolean,
+    onOpenSettings: () -> Unit,
+    onAddExpense: () -> Unit
+) {
+    if (!listenerEnabled) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(
+                onClick = onOpenSettings,
+                modifier = Modifier.weight(1f),
+                shape = CornerCutShape(radius = 18.dp, cut = 20.dp),
+                color = CardBackground,
+                border = BorderStroke(1.dp, BorderLine)
             ) {
-                Text("Permisos", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Permisos", color = TextPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+            Surface(
+                onClick = onAddExpense,
+                modifier = Modifier.weight(1f),
+                shape = CornerCutShape(radius = 18.dp, cut = 20.dp),
+                color = Volt
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Agregar gasto", color = Ink, fontWeight = FontWeight.Black)
+                }
             }
         }
+    } else {
         Surface(
-            onClick = onSimulate,
-            modifier = Modifier.weight(1f),
+            onClick = onAddExpense,
+            modifier = Modifier.fillMaxWidth(),
             shape = CornerCutShape(radius = 18.dp, cut = 20.dp),
             color = Volt
         ) {
@@ -346,7 +393,7 @@ private fun Controls(onOpenSettings: () -> Unit, onSimulate: () -> Unit) {
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Simular", color = Ink, fontWeight = FontWeight.Black)
+                Text("Agregar gasto", color = Ink, fontWeight = FontWeight.Black)
             }
         }
     }
