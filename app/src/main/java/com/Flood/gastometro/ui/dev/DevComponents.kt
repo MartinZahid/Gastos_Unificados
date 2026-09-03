@@ -1,6 +1,7 @@
 package com.Flood.gastometro.ui.dev
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,7 +74,8 @@ internal fun DevActionButton(
 @Composable
 internal fun UnreviewedFailuresBanner(
     count: Int,
-    onMarkReviewed: () -> Unit
+    onMarkReviewed: () -> Unit,
+    onSee: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -98,8 +100,13 @@ internal fun UnreviewedFailuresBanner(
                 fontSize = 12.sp
             )
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onMarkReviewed) {
-                Text("Marcar como revisadas", color = Volt, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onSee) {
+                    Text("Verlas", color = Volt, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                TextButton(onClick = onMarkReviewed) {
+                    Text("Marcar como revisadas", color = Volt, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }

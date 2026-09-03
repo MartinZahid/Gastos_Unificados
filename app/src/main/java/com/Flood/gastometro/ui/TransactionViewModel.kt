@@ -77,6 +77,12 @@ class TransactionViewModel(
     val notificationLogs: StateFlow<List<NotificationLog>> = logDao.observeAll()
         .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 
+    // Las notificaciones sin reconocer de bancos soportados (las que cuenta
+    // el aviso proactivo), para poder verlas y revisarlas en Modo dev en vez
+    // de solo recibir el total en un aviso.
+    val unreviewedFailures: StateFlow<List<NotificationLog>> = logDao.observeUnreviewedFailures()
+        .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
+
     val learnedPatterns: StateFlow<List<LearnedPattern>> = learnedDao.observeAll()
         .stateIn(viewModelScope, STOP_SHARING_TIMEOUT, emptyList())
 

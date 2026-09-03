@@ -29,6 +29,17 @@ interface NotificationLogDao {
     @Query("SELECT * FROM notification_log ORDER BY dateMillis DESC, id DESC LIMIT 200")
     fun observeAll(): Flow<List<NotificationLog>>
 
+    // Las notificaciones de un banco soportado que el parser no logró leer y
+    // el usuario aún no revisa: las mismas que cuenta observeUnreviewedFailureCount,
+    // para poder mostrarlas en Modo dev en lugar de solo avisar del total.
+    @Query(
+        "SELECT * FROM notification_log " +
+            "WHERE parsed = 0 AND inTargetList = 1 AND reviewed = 0 " +
+            "AND reason != 'sin monto' " +
+            "ORDER BY dateMillis DESC, id DESC"
+    )
+    fun observeUnreviewedFailures(): Flow<List<NotificationLog>>
+
     @Query(
         "DELETE FROM notification_log WHERE id NOT IN (" +
             "SELECT id FROM notification_log " +

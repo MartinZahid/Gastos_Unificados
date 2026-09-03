@@ -278,6 +278,7 @@ class BankNotificationListener : NotificationListenerService() {
             "mx.bancosantander.supermovil",
             "com.santander.latam.mx",
             "com.banamex.banamex",
+            "com.citibanamex.banamexmobile",
             "com.rappi",
             "org.microemu.android.model.common.VTUserApplicationBNRTMB",
             "com.Flood.gastometro"
@@ -291,6 +292,7 @@ class BankNotificationListener : NotificationListenerService() {
             "mx.bancosantander.supermovil" to "Santander",
             "com.santander.latam.mx" to "Santander",
             "com.banamex.banamex" to "Citibanamex",
+            "com.citibanamex.banamexmobile" to "Citibanamex",
             "com.rappi" to "Rappi",
             "org.microemu.android.model.common.VTUserApplicationBNRTMB" to "Banorte",
             "com.Flood.gastometro" to "Pruebas"

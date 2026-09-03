@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,6 +53,7 @@ import com.Flood.gastometro.engine.deriveTrigger
 import com.Flood.gastometro.ui.TransactionViewModel
 import com.Flood.gastometro.ui.theme.CardElevated
 import com.Flood.gastometro.ui.theme.DarkBackground
+import com.Flood.gastometro.ui.theme.Ink
 import com.Flood.gastometro.ui.theme.TextPrimary
 import com.Flood.gastometro.ui.theme.TextSecondary
 import com.Flood.gastometro.ui.theme.Volt
@@ -64,6 +66,7 @@ fun DevScreen(
     val logs by viewModel.notificationLogs.collectAsStateWithLifecycle()
     val learned by viewModel.learnedPatterns.collectAsStateWithLifecycle()
     val unreviewedCount by viewModel.unreviewedFailureCount.collectAsStateWithLifecycle()
+    val unreviewedFailures by viewModel.unreviewedFailures.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showTester by remember { mutableStateOf(false) }
@@ -71,6 +74,9 @@ fun DevScreen(
     var showType by remember { mutableStateOf<NotificationLog?>(null) }
     var showLearn by remember { mutableStateOf(false) }
     var corpusIndex by remember { mutableIntStateOf(0) }
+    var onlyUnreviewed by remember { mutableStateOf(false) }
+
+    val shownLogs = if (onlyUnreviewed) unreviewedFailures else logs
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -83,131 +89,167 @@ fun DevScreen(
         }
     }
 
-    Column(
+    // Toda la pantalla es una única LazyColumn: así todo (frases aprendidas,
+    // aviso y log) scrollea como un solo flujo y el log de notificaciones no
+    // queda encerrado en un espacio fijo diminuto bajo los otros bloques.
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = TextPrimary)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "MODO DEV",
-                    color = Volt,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Alimentación del parser",
-                    color = TextPrimary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DevActionButton(
-                icon = Icons.Default.Search,
-                label = "Probar",
-                onClick = { showTester = true },
-                modifier = Modifier.weight(1f)
-            )
-            DevActionButton(
-                icon = Icons.Default.Notifications,
-                label = "Simular",
-                onClick = {
-                    postTestNotification(context, testCorpus[corpusIndex % testCorpus.size])
-                    corpusIndex++
-                },
-                modifier = Modifier.weight(1f)
-            )
-            DevActionButton(
-                icon = Icons.Default.Delete,
-                label = "Limpiar",
-                onClick = { viewModel.clearLogs() },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
-
-        DevLabel("FRASES APRENDIDAS")
-        Spacer(Modifier.height(8.dp))
-        LearnedSection(
-            patterns = learned,
-            onDelete = viewModel::deleteLearned,
-            onAdd = { showLearn = true }
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // Aviso de que el parser dejó de reconocer notificaciones de un
-        // banco soportado: sin esto, un cambio de formato del banco pierde
-        // gastos en silencio hasta que alguien entra a revisar por su cuenta.
-        if (unreviewedCount > 0) {
-            UnreviewedFailuresBanner(
-                count = unreviewedCount,
-                onMarkReviewed = viewModel::markFailuresReviewed
-            )
-            Spacer(Modifier.height(16.dp))
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            DevLabel("LOG DE NOTIFICACIONES")
-            Spacer(Modifier.weight(1f))
-            Surface(shape = RoundedCornerShape(50), color = CardElevated) {
-                Text(
-                    text = logs.size.toString(),
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-
-        if (logs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Sin notificaciones aún.\nToca Simular o activa la escucha en Permisos.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(logs, key = { it.id }) { log ->
-                    LogRow(
-                        log = log,
-                        onCompra = {
-                            if (log.parsed && log.merchant != null && log.amount != null) {
-                                viewModel.insertPurchase(log.merchant, log.amount, log.bank ?: "Otro")
-                            } else {
-                                showManual = log
-                            }
-                        },
-                        onIgnorar = {
-                            val kw = deriveIgnoreKeyword(log.text)
-                            if (kw != null) viewModel.learnIgnorar(kw)
-                        },
-                        onTipo = { showType = log }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = TextPrimary)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "MODO DEV",
+                        color = Volt,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Alimentación del parser",
+                        color = TextPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
+            }
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DevActionButton(
+                    icon = Icons.Default.Search,
+                    label = "Probar",
+                    onClick = { showTester = true },
+                    modifier = Modifier.weight(1f)
+                )
+                DevActionButton(
+                    icon = Icons.Default.Notifications,
+                    label = "Simular",
+                    onClick = {
+                        postTestNotification(context, testCorpus[corpusIndex % testCorpus.size])
+                        corpusIndex++
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                DevActionButton(
+                    icon = Icons.Default.Delete,
+                    label = "Limpiar",
+                    onClick = { viewModel.clearLogs() },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        item {
+            Column {
+                DevLabel("FRASES APRENDIDAS")
+                Spacer(Modifier.height(8.dp))
+                LearnedSection(
+                    patterns = learned,
+                    onDelete = viewModel::deleteLearned,
+                    onAdd = { showLearn = true }
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Frases que el parser aprendió: COMPRA = reconoce la notificación como gasto y la agrega automáticamente; IGNORAR = descarta notificaciones que no son gastos (saldos, promos, mensajes).",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        if (unreviewedCount > 0) {
+            item {
+                Column {
+                    Spacer(Modifier.height(10.dp))
+                    UnreviewedFailuresBanner(
+                        count = unreviewedCount,
+                        onMarkReviewed = viewModel::markFailuresReviewed,
+                        onSee = { onlyUnreviewed = true }
+                    )
+                }
+            }
+        }
+
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DevLabel("LOG DE NOTIFICACIONES")
+                Spacer(Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = if (onlyUnreviewed) Volt else CardElevated,
+                        onClick = { onlyUnreviewed = !onlyUnreviewed }
+                    ) {
+                        Text(
+                            text = if (onlyUnreviewed) "Ver todo" else "Solo sin reconocer",
+                            color = if (onlyUnreviewed) Ink else TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+                Surface(shape = RoundedCornerShape(50), color = CardElevated) {
+                    Text(
+                        text = shownLogs.size.toString(),
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        if (shownLogs.isEmpty()) {
+            item {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (onlyUnreviewed)
+                            "No hay notificaciones sin reconocer.\nTodas fueron revisadas."
+                        else
+                            "Sin notificaciones aún.\nToca Simular o activa la escucha en Permisos.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            items(shownLogs, key = { it.id }) { log ->
+                LogRow(
+                    log = log,
+                    onCompra = {
+                        if (log.parsed && log.merchant != null && log.amount != null) {
+                            viewModel.insertPurchase(log.merchant, log.amount, log.bank ?: "Otro")
+                        } else {
+                            showManual = log
+                        }
+                    },
+                    onIgnorar = {
+                        val kw = deriveIgnoreKeyword(log.text)
+                        if (kw != null) viewModel.learnIgnorar(kw)
+                    },
+                    onTipo = { showType = log }
+                )
             }
         }
     }
