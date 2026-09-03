@@ -14,3 +14,7 @@ captures/
 *.keystore
 keystore.properties
 output.json
+build_bundle.txt
+build_ks.txt
+build_rel.txt
+plugins_opencode.xlsx
